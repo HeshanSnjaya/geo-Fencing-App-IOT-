@@ -1,0 +1,64 @@
+#include <TinyGPS++.h>
+#include <WiFi.h>
+#include <math.h>
+
+// Define GPS module pins
+#define RXD2 16
+#define TXD2 17
+
+// GPS and Earth constants
+#define EARTH_RADIUS 6371000 // Earth's radius in meters
+#define RADIUS 10            // Circle radius in meters
+#define POINTS 36            // Number of points to draw a smooth circle
+
+TinyGPSPlus gps;              // Create GPS parser object
+HardwareSerial GPS_Serial(2); // Use UART2 for GPS (TX=17, RX=16)
+
+void setup() {
+  Serial.begin(115200);              // Start Serial Monitor
+  GPS_Serial.begin(9600, SERIAL_8N1, RXD2, TXD2); // Start GPS serial port
+  Serial.println("Waiting for GPS data...");
+}
+
+void calculateCirclePoints(float centerLat, float centerLng, float radius, int points) {
+  float latOffset = radius / EARTH_RADIUS * (180 / PI);
+  float lngOffset = radius / (EARTH_RADIUS * cos(centerLat * PI / 180)) * (180 / PI);
+
+  Serial.println("Circle Points (Lat, Lng):");
+  for (int i = 0; i < points; i++) {
+    float angle = i * (2 * PI / points); // Angle for each point
+    float lat = centerLat + latOffset * sin(angle);
+    float lng = centerLng + lngOffset * cos(angle);
+
+    Serial.print(lat, 6);
+    Serial.print(", ");
+    Serial.println(lng, 6);
+  }
+}
+
+void loop() {
+  while (GPS_Serial.available() > 0) {
+    char c = GPS_Serial.read(); // Read GPS data
+    gps.encode(c);              // Feed data to GPS parser
+
+    if (gps.location.isUpdated()) { // If new location data is available
+      float latitude = gps.location.lat();
+      float longitude = gps.location.lng();
+
+      // Display Latitude and Longitude
+      Serial.print("Latitude: ");
+      Serial.print(latitude, 6);
+      Serial.print(", Longitude: ");
+      Serial.println(longitude, 6);
+
+      // Calculate 10m radius circle points
+      calculateCirclePoints(latitude, longitude, RADIUS, POINTS);
+
+      // Display Google Maps Link
+      String googleMapsLink = String("https://www.google.com/maps?q=") + latitude + "," + longitude;
+      Serial.println("Google Maps Link: " + googleMapsLink);
+
+      Serial.println("-----------------------------");
+    }
+  }
+}
